@@ -3,9 +3,15 @@ import { type ReactNode, useMemo } from 'react';
 import { DateDistance } from '@/components/common/DateDistance';
 import { LinkButton } from '@/components/common/LinkButton';
 import { SortableLabel } from '@/components/common/SortableLabel';
-import { useMessages, useNavigation, useWebsiteListChartsQuery } from '@/components/hooks';
+import {
+  useMessages,
+  useNavigation,
+  useWebsiteListChartsQuery,
+  useWebsiteListLastActivityQuery,
+} from '@/components/hooks';
 import { SquarePen } from '@/components/icons';
 import { decodePunycodeDomain } from '@/lib/format';
+import { WebsiteLastActivity } from './WebsiteLastActivity';
 import { WebsiteSparkline } from './WebsiteSparkline';
 
 export interface WebsitesTableProps extends DataTableProps {
@@ -25,6 +31,9 @@ export function WebsitesTable({
   const chartsQuery = useWebsiteListChartsQuery(websiteIds);
   const charts = chartsQuery.data?.data || {};
   const isChartLoading = chartsQuery.isLoading && !chartsQuery.data;
+  const activityQuery = useWebsiteListLastActivityQuery(websiteIds);
+  const activity = activityQuery.data?.data || {};
+  const isActivityLoading = activityQuery.isLoading && !activityQuery.data;
 
   return (
     <DataTable {...props} data={data}>
@@ -66,6 +75,18 @@ export function WebsitesTable({
             />
           );
         }}
+      </DataColumn>
+      <DataColumn
+        id="lastActivity"
+        label={<span style={{ whiteSpace: 'normal' }}>{t(labels.lastActivity)}</span>}
+        width="180px"
+      >
+        {(row: any) => (
+          <WebsiteLastActivity
+            lastActivity={activity[row.id]?.lastActivity}
+            isLoading={isActivityLoading}
+          />
+        )}
       </DataColumn>
       <DataColumn
         id="created"
