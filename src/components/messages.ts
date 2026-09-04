@@ -27,6 +27,7 @@ export const labels: Record<string, string> = {
   teamWebsites: 'label.team-websites',
   created: 'label.created',
   createdBy: 'label.created-by',
+  lastActivity: 'label.last-activity',
   edit: 'label.edit',
   design: 'label.design',
   name: 'label.name',

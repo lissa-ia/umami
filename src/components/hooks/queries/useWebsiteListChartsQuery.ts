@@ -3,11 +3,22 @@ import type { WebsiteListChartData } from '@/queries/sql/getWebsiteListCharts';
 import { useApi } from '../useApi';
 import { useTimezone } from '../useTimezone';
 
-export interface WebsiteListChartsResponse {
-  data: Record<string, WebsiteListChartData>;
+export interface WebsiteListQueryResponse<T> {
+  data: Record<string, T>;
 }
 
-function useListChartsQuery(queryKey: string, path: string, idsInput: string[]) {
+export type WebsiteListChartsResponse = WebsiteListQueryResponse<WebsiteListChartData>;
+
+export interface UseListQueryOptions {
+  refetchInterval?: number;
+}
+
+export function useListChartsQuery<T = WebsiteListChartData>(
+  queryKey: string,
+  path: string,
+  idsInput: string[],
+  { refetchInterval }: UseListQueryOptions = {},
+) {
   const { get, useQuery } = useApi();
   const { timezone, canonicalizeTimezone } = useTimezone();
 
@@ -17,7 +28,7 @@ function useListChartsQuery(queryKey: string, path: string, idsInput: string[]) 
   );
   const resolvedTimezone = canonicalizeTimezone(timezone);
 
-  return useQuery<WebsiteListChartsResponse>({
+  return useQuery<WebsiteListQueryResponse<T>>({
     queryKey: [queryKey, { ids, timezone: resolvedTimezone }],
     queryFn: () =>
       get(path, {
@@ -26,6 +37,7 @@ function useListChartsQuery(queryKey: string, path: string, idsInput: string[]) 
       }),
     enabled: ids.length > 0,
     staleTime: 5 * 60 * 1000,
+    refetchInterval,
   });
 }
 
