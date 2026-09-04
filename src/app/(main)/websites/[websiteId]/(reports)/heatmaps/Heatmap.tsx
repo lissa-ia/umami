@@ -22,6 +22,7 @@ import { useMobile, useResultQuery } from '@/components/hooks';
 import { ListCheck } from '@/components/icons';
 import { formatLongNumber } from '@/lib/format';
 import type { HeatmapMode, HeatmapPoint, HeatmapResult, HeatmapSnapshot } from '@/queries/sql';
+import { getHeatmapCanvasLayout } from './heatmapLayout';
 import styles from './Heatmap.module.css';
 
 const SCROLL_BUCKET_SIZE = 10;
@@ -629,7 +630,7 @@ function ScreenWidthIcon({ width }: { width: number }) {
   );
 }
 
-function ClickHeatmapView({
+export function ClickHeatmapView({
   urlPath,
   points,
   snapshot,
@@ -666,13 +667,18 @@ function ClickHeatmapView({
   }, [hasSnapshot, snapshot?.id]);
   const overlayGutter = Math.max(48, Math.round((viewport?.width ?? 1920) * 0.04));
   const maxPointX = visible.reduce((max, point) => Math.max(max, point.pageX), 0);
-  const snapshotHeight = snapshot ? getSnapshotFrameHeight(snapshot) : 0;
-  // Keep the canvas sized to real content and clip outlier clicks instead of stretching it.
+  // Size the iframe and canvas in the selected bucket's coordinate space (the
+  // same space the overlay points live in). The iframe is pinned to the
+  // recorded viewport height so `100vh` renders faithfully; the canvas spans the
+  // full page height so below-the-fold clicks are shown instead of being clipped.
+  const layout = viewport
+    ? getHeatmapCanvasLayout({ pageH: viewport.pageH, viewportH: viewport.viewportH })
+    : null;
   const baseWidth = Math.max(viewport?.pageW ?? 0, maxPointX + overlayGutter, 1);
   const renderWidth = viewport?.width ?? snapshot?.viewportW ?? baseWidth;
-  // Match the canvas height to the snapshot height we actually render.
-  const contentHeight = snapshotHeight || viewport?.pageH || 0;
+  const contentHeight = layout?.contentHeight || viewport?.pageH || 0;
   const renderHeight = Math.max(contentHeight, 640);
+  const frameHeight = layout?.frameHeight ?? 0;
   const hasMeasuredWidth = Boolean(viewport?.width || snapshot?.viewportW || maxPointX);
   const fit = useCanvasFit(renderWidth, renderHeight);
   const canvasWidth = hasMeasuredWidth ? `${fit.width}px` : '100%';
@@ -749,6 +755,7 @@ function ClickHeatmapView({
           ) : (
             <div
               className={styles.canvasSurface}
+              data-test="heatmap-canvas-surface"
               style={{
                 width: Math.max(1, renderWidth),
                 height: Math.max(1, renderHeight),
@@ -758,7 +765,11 @@ function ClickHeatmapView({
               <div className={styles.snapshotClip}>
                 {shouldRenderSnapshot && !snapshotReady && <CanvasLoading />}
                 {shouldRenderSnapshot && snapshot && (
-                  <SnapshotPreview snapshot={snapshot} onReady={handleSnapshotReady} />
+                  <SnapshotPreview
+                    snapshot={snapshot}
+                    frameHeight={frameHeight}
+                    onReady={handleSnapshotReady}
+                  />
                 )}
               </div>
               {showOverlay && (
@@ -799,7 +810,7 @@ function ClickHeatmapView({
   );
 }
 
-function ScrollHeatmapView({
+export function ScrollHeatmapView({
   urlPath,
   scroll,
   snapshot,
@@ -833,11 +844,18 @@ function ScrollHeatmapView({
   const pageH = viewport?.pageH ?? scroll?.pageH ?? 0;
   const viewportW = viewport?.width ?? scroll?.viewportW ?? 0;
   const viewportH = viewport?.viewportH ?? scroll?.viewportH ?? 0;
-  const snapshotHeight = snapshot ? getSnapshotFrameHeight(snapshot) : 0;
+  // Size the iframe and canvas in the selected bucket's coordinate space (the
+  // scroll bands and depth math live in that space). The iframe is pinned to the
+  // recorded viewport height so `100vh` renders faithfully; the canvas spans the
+  // full page height.
+  const layout = viewport
+    ? getHeatmapCanvasLayout({ pageH: viewport.pageH, viewportH: viewport.viewportH })
+    : null;
   const baseWidth = Math.max(pageW, 1);
-  const baseHeight = Math.max(snapshotHeight || pageH, 640);
+  const baseHeight = Math.max(layout?.contentHeight ?? pageH, 640);
   const renderWidth = viewport?.width ?? snapshot?.viewportW ?? viewportW ?? baseWidth;
   const renderHeight = baseHeight;
+  const frameHeight = layout?.frameHeight ?? 0;
   const hasMeasuredWidth = Boolean(viewport?.width || snapshot?.viewportW || viewportW || pageW);
   const fit = useCanvasFit(renderWidth, renderHeight);
   const canvasWidth = hasMeasuredWidth ? `${fit.width}px` : '100%';
@@ -932,6 +950,7 @@ function ScrollHeatmapView({
           ) : (
             <div
               className={styles.canvasSurface}
+              data-test="heatmap-canvas-surface"
               style={{
                 width: Math.max(1, renderWidth),
                 height: Math.max(1, renderHeight),
@@ -940,7 +959,11 @@ function ScrollHeatmapView({
             >
               {shouldRenderSnapshot && !snapshotReady && <CanvasLoading />}
               {shouldRenderSnapshot && snapshot && (
-                <SnapshotPreview snapshot={snapshot} onReady={handleSnapshotReady} />
+                <SnapshotPreview
+                  snapshot={snapshot}
+                  frameHeight={frameHeight}
+                  onReady={handleSnapshotReady}
+                />
               )}
               {showOverlay && (
                 <div className={styles.overlay}>
@@ -984,37 +1007,29 @@ function ScrollHeatmapView({
   );
 }
 
-function getSnapshotFrameHeight(snapshot: HeatmapSnapshot) {
-  const { pageH, viewportH } = snapshot;
-
-  // Use the recorded viewport height for near-single-screen pages so `100vh` matches the visitor's screen.
-  if (pageH <= viewportH * 1.25) {
-    return viewportH;
-  }
-
-  return pageH;
-}
-
 function SnapshotPreview({
   snapshot,
+  frameHeight,
   onReady,
 }: {
   snapshot: HeatmapSnapshot;
+  frameHeight: number;
   onReady: () => void;
 }) {
-  return <IframeSnapshot snapshot={snapshot} onReady={onReady} />;
+  return <IframeSnapshot snapshot={snapshot} frameHeight={frameHeight} onReady={onReady} />;
 }
 
 function IframeSnapshot({
   snapshot,
+  frameHeight,
   onReady,
 }: {
   snapshot: HeatmapSnapshot;
+  frameHeight: number;
   onReady: () => void;
 }) {
   const [available, setAvailable] = useState(true);
   const iframeUrl = snapshot.url;
-  const frameHeight = getSnapshotFrameHeight(snapshot);
 
   useEffect(() => {
     setAvailable(true);
@@ -1037,6 +1052,7 @@ function IframeSnapshot({
   return (
     <div
       className={styles.snapshot}
+      data-test="heatmap-snapshot-frame"
       style={{
         height: Math.max(1, frameHeight),
       }}
