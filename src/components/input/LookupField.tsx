@@ -36,8 +36,10 @@ export function LookupField({
   });
 
   const items: string[] = useMemo(() => {
-    return data?.map(({ value }) => value) || [];
-  }, [data]);
+    const values = [value, ...(data || []).map(({ value }) => value)].filter(Boolean);
+
+    return [...new Set<string>(values)];
+  }, [value, data]);
 
   const handleSearch = (value: SetStateAction<string>) => {
     setSearch(value);
