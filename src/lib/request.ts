@@ -70,6 +70,12 @@ export async function getJsonBody(request: Request) {
 export function getRequestDateRange(query: Record<string, string>) {
   const { startAt, endAt, unit, timezone } = query;
 
+  const hasDateRange = !!startAt && !!endAt;
+
+  if (!hasDateRange) {
+    return { startDate: undefined, endDate: undefined, timezone, unit: undefined };
+  }
+
   const startDate = new Date(+startAt);
   const endDate = new Date(+endAt);
 
