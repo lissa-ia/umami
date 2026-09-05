@@ -168,7 +168,7 @@ export async function getTeamWebsites(teamId: string, filters?: QueryFilters) {
         },
       },
     },
-    filters,
+    sanitizeSortFilters(filters, WEBSITE_SORT_FIELDS, { orderBy: 'name' }),
   );
 }
 

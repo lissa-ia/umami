@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { deleteWebsite, resetWebsite } from './website';
+import { deleteWebsite, getTeamWebsites, resetWebsite } from './website';
 
-const { transactionMock, redisDelMock, redisSetMock } = vi.hoisted(() => ({
-  transactionMock: vi.fn(),
-  redisDelMock: vi.fn(),
-  redisSetMock: vi.fn(),
-}));
+const { transactionMock, redisDelMock, redisSetMock, pagedQueryMock, shareFindManyMock } =
+  vi.hoisted(() => ({
+    transactionMock: vi.fn(),
+    redisDelMock: vi.fn(),
+    redisSetMock: vi.fn(),
+    pagedQueryMock: vi.fn(),
+    shareFindManyMock: vi.fn(),
+  }));
 
 vi.mock('@/lib/prisma', () => ({
   default: {
     transaction: transactionMock,
+    pagedQuery: pagedQueryMock,
+    getSearchParameters: vi.fn(),
+    client: {
+      share: {
+        findMany: shareFindManyMock,
+      },
+    },
   },
   getSchema: () => new URL(process.env.DATABASE_URL || '').searchParams.get('schema'),
 }));
@@ -100,6 +110,44 @@ function createDeleteTx(calls: string[]) {
     },
   };
 }
+
+describe('getTeamWebsites default sorting', () => {
+  beforeEach(() => {
+    pagedQueryMock.mockReset();
+    shareFindManyMock.mockReset();
+    pagedQueryMock.mockResolvedValue({
+      data: [],
+      count: 0,
+      page: 1,
+      pageSize: 20,
+      orderBy: 'name',
+      search: '',
+    });
+    shareFindManyMock.mockResolvedValue([]);
+  });
+
+  test('sorts by name ascending when no orderBy is provided', async () => {
+    await getTeamWebsites('team-1');
+
+    expect(pagedQueryMock).toHaveBeenCalledTimes(1);
+    const filters = pagedQueryMock.mock.calls[0][2];
+    expect(filters).toEqual({ orderBy: 'name' });
+  });
+
+  test('keeps an allowed explicit sort', async () => {
+    await getTeamWebsites('team-1', { orderBy: 'createdAt', sortDescending: true });
+
+    const filters = pagedQueryMock.mock.calls[0][2];
+    expect(filters).toEqual({ orderBy: 'createdAt', sortDescending: true });
+  });
+
+  test('falls back to name when the sort field is not allowed', async () => {
+    await getTeamWebsites('team-1', { orderBy: 'secret' } as any);
+
+    const filters = pagedQueryMock.mock.calls[0][2];
+    expect(filters).toEqual({ orderBy: 'name' });
+  });
+});
 
 describe('website delete dependencies', () => {
   beforeEach(() => {
