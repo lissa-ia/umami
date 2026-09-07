@@ -1,11 +1,13 @@
-const DEFAULT_CORS_MAX_AGE = process.env.CORS_MAX_AGE || '86400';
+const DEFAULT_CORS_MAX_AGE = '86400';
 
+// Reads the environment when called, so CORS_MAX_AGE applies per request
+// without reimporting the module or rebuilding the image.
 export function getApiCorsHeaders(headers: HeadersInit = {}) {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, x-umami-cache',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Max-Age': DEFAULT_CORS_MAX_AGE,
+    'Access-Control-Max-Age': process.env.CORS_MAX_AGE || DEFAULT_CORS_MAX_AGE,
     ...headers,
   };
 }
