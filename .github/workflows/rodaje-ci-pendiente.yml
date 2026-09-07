@@ -1,0 +1,22 @@
+# Disparador del rodaje de cuelgues (sonda 5): un job que nunca puede arrancar.
+#
+# Pide una etiqueta de runner que no tiene ninguna máquina, así que GitHub lo deja
+# encolado para siempre. Sirve para comprobar que un worker que se encuentra el CI
+# pendiente consulta UNA vez, reporta el estado y se detiene — sin reintentar ni
+# quedarse monitorizando.
+#
+# Sólo se dispara en PRs que tocan src/lib/fetch.ts, para no contaminar el CI de
+# ningún otro PR. Se borra al terminar el rodaje.
+name: rodaje-ci-pendiente
+
+on:
+  pull_request:
+    paths:
+      - 'src/lib/fetch.ts'
+      - 'src/lib/fetch.test.ts'
+
+jobs:
+  nunca-arranca:
+    runs-on: [self-hosted, rodaje-etiqueta-inexistente]
+    steps:
+      - run: echo "si esto se imprime, alguien creó un runner con la etiqueta del rodaje"
