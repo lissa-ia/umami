@@ -90,4 +90,27 @@ describe('getContentSecurityPolicy', () => {
     expect(after).toContain("connect-src 'self' https: https://api.example.com;");
     expect(after).toContain("frame-ancestors 'self' https://umami.is;");
   });
+
+  test('drops ALLOWED_FRAME_URLS entirely when it contains a directive separator', () => {
+    // El valor se interpola crudo: un ';' cierra frame-ancestors y abre otra directiva, y ahí
+    // se puede colar cualquier cosa en la política. Descartarlo entero es el fallo seguro;
+    // quedarse con la mitad ampliaría frame-ancestors a un origen que nadie autorizó.
+    process.env.ALLOWED_FRAME_URLS = "https://socio.example.com; default-src *";
+
+    const policy = getContentSecurityPolicy();
+
+    expect(policy).toContain("frame-ancestors 'self';");
+    expect(policy).not.toContain('default-src *');
+    expect(policy).not.toContain('socio.example.com');
+    // Exactamente las siete directivas de siempre, ni una más.
+    expect(policy.split(';').filter(Boolean)).toHaveLength(7);
+  });
+
+  test('still accepts a legitimate multi-origin list', () => {
+    process.env.ALLOWED_FRAME_URLS = 'https://a.example.com https://b.example.com';
+
+    expect(getContentSecurityPolicy()).toContain(
+      "frame-ancestors 'self' https://a.example.com https://b.example.com;",
+    );
+  });
 });
