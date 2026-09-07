@@ -40,12 +40,20 @@ export async function fetchSession(websiteId: string, sessionId: string): Promis
 }
 
 export async function fetchAccount(userId: string) {
+  if (!redis.enabled) {
+    return null;
+  }
+
   const account = await redis.client.get(`account:${userId}`);
 
   return account;
 }
 
 export async function fetchTeam(teamId: string) {
+  if (!redis.enabled) {
+    return null;
+  }
+
   const team = await redis.client.get(`team:${teamId}`);
 
   return team;
