@@ -15,6 +15,30 @@ export interface FetchResponse {
   error?: ErrorResponse;
 }
 
+async function parseBody(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return undefined;
+  }
+}
+
+function toErrorResponse(res: Response, data: any): ErrorResponse {
+  const body = (data && typeof data.error === 'object' && data.error) || {};
+  const message =
+    typeof body.message === 'string' && body.message.length > 0
+      ? body.message
+      : res.statusText || 'Request failed';
+
+  return {
+    error: {
+      status: res.status,
+      message,
+      ...(typeof body.code === 'string' && body.code.length > 0 && { code: body.code }),
+    },
+  };
+}
+
 export async function request(
   method: string,
   url: string,
@@ -31,12 +55,13 @@ export async function request(
     },
     body,
   }).then(async res => {
-    const data = await res.json();
+    const data = await parseBody(res);
 
     return {
       ok: res.ok,
       status: res.status,
       data,
+      ...(!res.ok && { error: toErrorResponse(res, data) }),
     };
   });
 }
